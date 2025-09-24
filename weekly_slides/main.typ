@@ -15,18 +15,20 @@
 )
 
 #let boxed(body,fill:rgb("8a9aa6")) = {box(fill:fill,inset: (x: 3pt, y: 0pt),outset: (y: 3pt),radius: 2pt,)[#body]}
-
-= Overview
-== Literature
+#counter(heading).update(2)
+#set heading(numbering: "1.")
+= First weekly meeting
+== Overview
+=== Literature
 *Review of non-linear loudspeaker litterature*
 - Hugos Thesis
 - Klippels papers
 - Jens Brehm Nielsen's repport on Thermal models
 - Alexander Weider King's paper on fractional derivatives
 
-= Relevant models
+== Relevant models
 
-== Models of a loudspeaker in increasing complexity (decreasing number of assumptions)
+=== Models of a loudspeaker in increasing complexity (decreasing number of assumptions)
 \
 #text(size: 12pt)[
  #set heading(numbering: none)
@@ -40,8 +42,8 @@
 - *BEM/FEM* (Finite/boundary element method)
 ]
 
-== Universal differential equations (graybox modelling)
-== Model discovery
+=== Universal differential equations (graybox modelling)
+=== Model discovery
 
 / *Sparse Identification of Nonlinear Dynamics (SINDy)*:#block[
 A data-driven method for discovering governing equations of dynamical systems directly from measurements.
@@ -92,7 +94,7 @@ The algorithm:
 + Extract DMD modes and frequencies
 ]
 #pagebreak()
-== Model approximation
+=== Model approximation
 / *Universal Differential Equations (UDEs)*:#block[
 A differential equation with a universal approximator embedded in the right-hand side.
 Form:
@@ -111,14 +113,14 @@ Notes:
 - Structure (bounds, symmetries, conservation) can be enforced in $f$ or via regularization
 ]
 
-== Results
+=== Results
 *DISCLAIMER - Results are all in comparison to dynax model*
-#figure(
-image("../loudspeaker.jl/data/results/compare_all_methods_20250912_071548/compare_methods_eval.png",width: 50%)  
-)
+// #figure(
+// image("../Loudspeaker.jl/data/results/compare_all_methods_20250912_071548/compare_methods_eval.png",width: 50%)  
+// )
 
-= Relevant research questions 
-== Possible Research questions
+== Relevant research questions 
+=== Possible Research questions
 #text(size:18pt)[
 + Combine models from manuel and Alex
 + Adressing thermal effect on parameters using either gray or blackbox modelling!
@@ -126,3 +128,122 @@ image("../loudspeaker.jl/data/results/compare_all_methods_20250912_071548/compar
 + Adressing polymer hysteresis
   - phenomena: speaker params after having been hot are different than cold after a long time
 ]
+
+= MLP without activation
+== Quick Summary:
+=== Wrote and verified
+- Testsignals for simulation and estimation
+  - complex sine
+  - Bandpassed pinknoise
+- Simulation of MassSpringDamperModel in package LoudspeakerModels.jl
+  - Currently Only MassSpringDamperModel
+- Estimation of Dynamic systems in package AbstractEstimation.jl 
+  - Currently Only estimate_with_ann with parametrized activation (currently identity) and optimizer currently adam with bfgs after and cubic interpolation
+
+== Results:
+=== Complex sine
+
+=== Pinknoise Bandpassed at 5 to 2000Hz
+==  Suggestions to future models and simulations
+=== Future Simulation models to look at
+- Linear Loudspeaker model (assuming x=0)
+  - would enable fitting to real data and comparison to old work
+  - would make a good baseline for further models
+=== Future Estimation models to look at
+  *Models of interest*
+    - MLP with activation
+    - Surrogates
+    - Resovoir Computing
+  *Methods of incoporation of interest*
+  - end to end gradient estimation
+ 
+  - UDE/NODE formulation
+    - see as end to end
+
+= Sceeening papers, Making plan and Fixing code
+== Screening papers
+=== quaried questions (690)
+  (loudspeaker AND nonlinear AND model\* AND ODE) OR (loudspeaker AND nonlinear AND model\*) NOT (piezoelectric OR imaging OR Crystal OR Arrival OR array OR droplets OR "echo cancel\*")
+=== Main takeaways so far
+- Joint state + parameter estimation
+  -   Application of Kalman and RLS adaptive algorithms to non-linear loudspeaker controler parameter estimation: A case study
+- Nonlinear AR with exogeneous input (NARX)
+- Parameter Estimation via PEM
+== MLP results without Nonlinearity
+#figure(
+   image("../weekly_slides/weeks/w4/FINAL_singleshot_MSD.svg",width: 50%)  
+)
+#figure(
+   image("../weekly_slides/weeks/w4/FINAL_singleshot_MSD_SPEC.svg",width: 50%)  
+)
+== MLP results without Nonlinearity multishot 
+#figure(
+   image("../weekly_slides/weeks/w4/FINAL_multishot_MSD.svg",width: 50%)  
+)
+
+#figure(
+   image("../weekly_slides/weeks/w4/Multishot_data_and_preds_g=3_MSD.svg",width: 50%)  
+)
+
+= First principle Experiments & Studyplan 
+== Experiment Overview
+=== Overview
+==== Physical Models
+- Experiment 1: Mass Spring Damper system
+==== TODO:
+===== Physical Models
+- Experiment 1: Loud speaker models
+===== function approximation
+- MLP
+- 
+===== Statistical Models
+===== ML Models
+===== Statespace models
+- joint estimation
+
+== Experiment 1: Mass Spring Damper system
+=== Theory
+/ Model Assumptions: #text[Assume a system consisting of a mass, a spring and a damper only consist of a spring described using hookes law $F=-k d$ and a damper (described by viscous damping $F=-c dot(x)$) driven by a force $F_e$ which collectively can be described as an acceleration times a mass described using Newtons 3'rd law $F=m dot.double(x)$, . As there is no nonlinaer or time-variant operators we conclude this is an LTI system of 2. order.
+]
+
+/ Time domain:#text[ In the time domain we determine the model as the sum of all forces acting on the system:
+$
+ F_("total")=& m (dot.double(x)+a(t))-(k x + c dot(x)) \
+ <=> dot.double(x)_("total")=&\
+$ ]
+#pagebreak()
+/ Frequency domain: #text[ In the Fourier domain only $sin$,$cos$ are transformed into fractions and thus for solving differential equations the Laplace domain is more suitable as it also transforms $exp$ into fractions meaning that the solution to first and second order differential equations can be solved algibraicly! \ Thus we use it to obtain:
+$ cal(L)(F_("total"))=m(s^) $ 
+
+]
+
+/ signal analysis:#text[
+  
+]
+=== Hypothesis
+=== Results
+=== Discussion
+
+== Experiment 1: Linear Loudspeaker system
+=== Assumptions
+=== Theory
+=== Hypothesis
+=== Results
+=== Discussion
+
+
+= 
+= 
+= 
+= 
+= 
+= 
+= 
+= 
+= 
+= 
+= 
+= 
+= 
+= 
+= 
