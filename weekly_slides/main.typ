@@ -1,17 +1,22 @@
-#import "@preview/diatypst:0.6.0": *
+#import "@preview/diatypst:0.7.1": *
+#import "@preview/pintorita:0.1.4"
+
+#set page(height: auto, width: auto, fill: black, margin: 2em)
+
+#show raw.where(lang: "pintora"): it => pintorita.render(it.text,factor:0.33)
+
 
 #show: slides.with(
   title: "Weekly Thesis Presentation", // Required
   subtitle: "A project on Non-linear loudspeaker estimation",
   date: "01.07.2024",
   authors: ("Johannes Nørskov Toke") ,
-
   // Optional Styling (for more / explanation see in the typst universe)
   ratio: 16/9,
   layout: "large",
+  count: "number",
   title-color: blue.darken(60%),
-  toc: true,
-  
+  toc: true  
 )
 
 #let boxed(body,fill:rgb("8a9aa6")) = {box(fill:fill,inset: (x: 3pt, y: 0pt),outset: (y: 3pt),radius: 2pt,)[#body]}
@@ -186,52 +191,143 @@ Notes:
 )
 
 = First principle Experiments & Studyplan 
-== Experiment Overview
-=== Overview
-==== Physical Models
-- Experiment 1: Mass Spring Damper system
-==== TODO:
-===== Physical Models
-- Experiment 1: Loud speaker models
-===== function approximation
-- MLP
-- 
-===== Statistical Models
-===== ML Models
-===== Statespace models
-- joint estimation
+== Experiment Overview  
+```pintora
+  mindmap
+  @param layoutDirection LR
+  + Modelling of Nonlinear loudspeaker
+  ++ numerical solver
+  ++++ Verify the Bodeplot [exp 0]
+  ++++ Verify the solver [exp 0]
+  ++ Model dynamics
+  +++ Linear Model dynamics
+  ++++ Mass Spring Damper [exp 0,2]
+  ++++ Linear Loudspeaker model [exp 1,2]
+  +++ Nonlinear Model dynamics
+  ++++ Nonlinear Mass Spring Damper [exp 3]
+  ++++ Nonlinear Loudspeaker [exp 3]
+  ++ Data Driven Models
+  +++ MLP [exp 2,3]
+  +++ N4SID [exp 2,3]
+  +++ VARX [exp 2,3]
+  +++ Kalman filter [exp 2,3]
+  +++ SINDy [exp 2,3]
+  +++ DMD [exp 2,3]
+  +++ NN+SR [exp 2,3]
+```
+=== Notes on experimental principles and strategies
+To uncover the complexities and minimize increase the chances of success experiments are created based on the scientific method and principles of decomposing complexity.
 
-== Experiment 1: Mass Spring Damper system
+== Experiment 0: Mass Spring Damper system + varifying setup
 === Theory
-/ Model Assumptions: #text[Assume a system consisting of a mass, a spring and a damper only consist of a spring described using hookes law $F=-k d$ and a damper (described by viscous damping $F=-c dot(x)$) driven by a force $F_e$ which collectively can be described as an acceleration times a mass described using Newtons 3'rd law $F=m dot.double(x)$, . As there is no nonlinaer or time-variant operators we conclude this is an LTI system of 2. order.
+/ Definition: #text[
+  A mass spring damper is a physical system which has a mass, a spring and viscous damping! Assuming an ideal mass, spring and damper its reaction to an external force can be described using newtons 1st and 2nd law, Hooke's law and using the formula of viscous damping.
 ]
-
-/ Time domain:#text[ In the time domain we determine the model as the sum of all forces acting on the system:
-$
- F_("total")=& m (dot.double(x)+a(t))-(k x + c dot(x)) \
- <=> dot.double(x)_("total")=&\
-$ ]
+/ Time Domain : #text[
+  Using the system description the following second order ODE in the time domain can be formulated as
+  $ inline(sum)F &= F_"system"+F_"ext" = F_"mass" + F_"viscous"+F_"spring" + F_"ext" \
+  dot.double(x)  &= (- (c dot(x) + k x)+F_"ext")/m 
+  $
+]
 #pagebreak()
-/ Frequency domain: #text[ In the Fourier domain only $sin$,$cos$ are transformed into fractions and thus for solving differential equations the Laplace domain is more suitable as it also transforms $exp$ into fractions meaning that the solution to first and second order differential equations can be solved algibraicly! \ Thus we use it to obtain:
-$ cal(L)(F_("total"))=m(s^) $ 
+/ State Space : #text[
+  Because the derivative is of 2nd order $x,dot(x),dot.double(x)$ can be derived using 2 states! Using the time domain formulations the state space formulation is formulated
+  $ dot.double(x)  &= (F_"ext" - (c dot(x) + k x))/m \
+  &<=> dot(X)=A X +B u quad "where" \ 
+  &X=[x,dot(x)]^T, quad u=F_"ext",quad A=mat(0, 1; -k/m, -c/m), B=mat(0; 1/m)\
+  $
+]
+#pagebreak()
+/ Harmonic analysis : #text[
+  Using the Laplace transformation we obtain the transfer functions for a, v and d
+  $ cal(L){dot.double(x)}&=X s^2 - X(0)- X(0)s  = (- (c X s -X(0) + k X)+F_"ext")/m <=>F_"ext"/m = X s^2 +X(c s+k)/m \
+<=>F_"ext" &= m X  (s^2+(c s+k)/m)  \
+  <=> X/F_"ext" &=  (k/m 1/k)/(s^2+c/m s+k/m) <=> "2nd order Lowpass with:" omega_n=sqrt(k/m), quad zeta= c/(2sqrt(k m))quad "gain"=1/k\
+  <=> (X s)/F_"ext" &= (2 c/(2 m sqrt(k/m))sqrt(k/m)1/c s)/(s^2+c/m s+k/m)  <=> "2nd order Bandpass with:" omega_n=sqrt(k/m), quad zeta= c/(2sqrt(k m))= quad "gain"=1/c\
+  <=> (X s^2)/F_"ext" &=  (1/m s^2)/(s^2+c/m s+k/m)  <=> "2nd order Highpass with:" omega_n=sqrt(k/m), quad zeta= c/(2sqrt(k m))quad "gain"=1/m
+  $
+]
+=== Hypothesis
+Thus making a 50g mass spring damper with natural frequency at 250Hz and damping ratio 0.1 has the parameters $ m=0.05"Kg",k=0.05 dot (250 dot 2 pi)^2 = 123370.055N,c=2 zeta m omega_n = 2 dot 0.01 dot 0.05"Kg" dot 250 dot 2 pi"rad" = 1.571"Ns"/m $  
+This theoretical mass spring damper would be very underdamp and thus we expect a ressonance at 250Hz aswell as a -12db rolloff after around 250Hz (not exactly 250 as the damping isn't $omega=omega_n$).
 
+To verify this theory aswell as the solver and Bodeplot we will apply a pinknoise testsignal bandpassed to 10Hz-1000Hz aswell as a complex sine tone!
+=== Results
+- TODO make julia control statespace model
+view results of normal model
+
+=== Discussion
+
+== Experiment 2: Linear models
+=== Theory
+  In _*experiment 0*_ a linear mass spring damper was derived and tuned with a natural frequency of 250Hz! 
+  
+  Now a linear loudspeaker will be analyzed, and the findings will be compared to the mass spring damper:
+/ Definition: #text[
+  A Linear Loudspeaker is a physical system comprised of 3 subsystems: 
+  - an electrical system, 
+  - a mechanical system 
+  - an acoustical system
+]
+/ *The electrical system*: #text[The electrical system is comprised of a voice coil which is assumed to have a parasitic Resistance, an inductance and to be coupled with the mechanical system by the Lorentz force (converting current to force) and the electromotive force (converting velocity to voltage). Thus this constitutes an "RL" circuit with a current dependent force and velocity dependent voltage source. 
+]
+#pagebreak()
+/ The mechanical system : #text[The mechanical system is comprised of the suspension and the motor system, and the diaphragm and the acoustical load on the diaphragm. Assuming a discretization of physical properties a lumped model of each component can be described which can be described as an equivalent circuit.  Its also comprised of the electrical coupling by the Lorentz force and the electromotive force and an acoustical coupling through the diaphragm velocity and through the ! Thus the mechanical system then can be formulated as an effective mass spring and damper with a voltage dependent force, and a voltage dependent ! 
+]
+/ The acoustical system : #text[The acoustical system can also be described as having an acoustical resistance,acoustic mass and acoustic compliance thus an equivalent circuit. In academia this system is often accounted for in the mechanical system parameters!
+
+*NOTE:* 
+
+This has to be tested! A hypothesis as to why is that the acoustic resistance, mass and compliance is almost zero speaker in free air! This is a gross assumption which would have to be studied! 
 ]
 
-/ signal analysis:#text[
+#pagebreak()
+/ Time Domain : #text[
+  Using the system description the following second order ODE in the time domain can be formulated as an second order ode
+  $
+         u&=B l dot(x)+L_e dif/(dif t)i + R_e i \
+    B l i &=K_m x + M_m dot.double(x)+R_m dot(x)
+  $
+  or as an first order ode by introducing $v=dot(x)$
+  $
+         u&=B l v+L_e dif/(dif t)i + R_e i \
+    B l i &=K_m x + M_m dot(v)+R_m v
+  $
+]
+#pagebreak()
+/ State Space : #text[ 
+We formulate the statespace model of Second Order ODE Loudspeaker model using the time domain formulation using 3 states as we observe that the highest derivative is 2 for $x$ and 1 for $i$ 
+$
+         u&=B l dot(x)+L_e dif/(dif t)i + R_e i <=> &dif/(dif t)i=& (u - (B l dot(x) + R_e i))/L_e\
+    B l i &=K_m x + M_m dot.double(x)+R_m dot(x) <=> &dot.double(x) =& (B l i - (K_m x +R_m dot(x)))/M_m \
+    & &dot.double(x)=&dif/(dif t) dot(x)\
+    <=>dot(X)&=A X + B u, "where" quad X = [i,x,dot(x)]^T, quad &A=&mat(-R_e/L_e,0,-(B l)/L_e;0,0,1;(B l)/M_m,-K_m/M_m,-R_m/M_m),B=[1/L_e,0,0]^T
+$
   
 ]
-=== Hypothesis
-=== Results
-=== Discussion
+/ Harmonic analysis 1/2 : #text[
+  Using the Laplace transformation we obtain the transfer functions for $i$, $x$ and $dot(x)$
+  $
+    cal(L){B l i } &= B l I = K_m X + M_m X s^2 - X(0)s - X(0) +R_m X s - X(0) <=> I =  (K_m + M_m s^2 +R_m s)/(B l) X\
+    cal(L){u}   &= U = B l X s - X(0)+L_e I s -I(0)+ R_e I <=> U = B l X s +( L_e s+ R_e)I  \
+    <=>U        &= X B l s +X(L_e s+ R_e)(K_m + M_m s^2 +R_m s)/(B l) = X(B l s +(L_e s+ R_e)(K_m + M_m s^2 +R_m s)/(B l))\
+    X/U         &=(B l)/(B l^2 s +(K_m + M_m s^2 +R_m s)(L_e s+ R_e))  <=> "3 poles" => "Lowpass" \ 
+    (X s)/U     &= (s B l)/(B l^2 s +(K_m + M_m s^2 +R_m s)(L_e s+ R_e)) <=> "3 poles, 1 zeros" => "Bandpass" \ 
+    I/U         &=(K_m + M_m s^2 +R_m s)/(B l^2 s +(K_m + M_m s^2 +R_m s)(L_e s+ R_e)) => "p poles, 2 zeros" => "Notch"
+  $
+]
+=== Experiment 2.a 
+==== Hypothesis
 
-== Experiment 1: Linear Loudspeaker system
-=== Assumptions
+==== Results
+==== Discussion
+
+== Nonlinear Loudspeaker system
+
 === Theory
 === Hypothesis
 === Results
 === Discussion
-
-
 = 
 = 
 = 
